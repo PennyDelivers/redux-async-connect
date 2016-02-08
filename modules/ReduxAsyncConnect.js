@@ -16,8 +16,8 @@ const { array, func, object, any } = React.PropTypes;
 function eachComponents(components, iterator) {
   for (let i = 0, l = components.length; i < l; i++) { // eslint-disable-line id-length
     if (typeof components[i] === 'object') {
-      for (const key of components[i]) {
-        iterator(components[i][key], i, key);
+      for (let [key, value] of Object.entries(components[i])) {
+        iterator(value, i, key);
       }
     } else {
       iterator(components[i], i);
@@ -42,10 +42,12 @@ function asyncConnectPromises(components, params, store, helpers) {
 
 export function loadOnServer({ components, params }, store, helpers) {
   return Promise.all(asyncConnectPromises(filterAndFlattenComponents(components), params, store, helpers))
-    .catch(error => console.error('reduxAsyncConnect server promise error: ' + error)).then(() => {
+    .catch(error => console.error('reduxAsyncConnect server promise error: ', error)).then(() => {
       store.dispatch(endGlobalLoad());
     });
 }
+
+let loadDataCounter = 0;
 
 class ReduxAsyncConnect extends React.Component {
   static propTypes = {
@@ -91,18 +93,32 @@ class ReduxAsyncConnect extends React.Component {
     this.loadAsyncData(nextProps);
   }
 
+  shouldComponentUpdate(nextProps, nextState) {
+    return this.state.propsToShow !== nextState.propsToShow;
+  }
+
   loadAsyncData(props) {
     const { components, params, helpers } = props;
     const store = this.context.store;
     const promises = asyncConnectPromises(filterAndFlattenComponents(components), params, store, helpers);
 
+    loadDataCounter++;
+
     if (promises.length) {
       this.props.beginGlobalLoad();
-      Promise.all(promises).catch(error => console.error('reduxAsyncConnect server promise error: ' + error))
-        .then(() => {
-          this.setState({propsToShow: props});
-          this.props.endGlobalLoad();
-        });
+      (loadDataCounterOriginal => {
+        Promise.all(promises).catch(error => console.error('reduxAsyncConnect server promise error: ', error))
+            .then(() => {
+              // We need to change propsToShow only if loadAsyncData that called this promise
+              // is the last invocation of loadAsyncData method. Otherwise we can face situation
+              // when user is changing route several times and we finally show him route that has
+              // loaded props last time and not the last called route
+              if (loadDataCounter === loadDataCounterOriginal) {
+                this.setState({propsToShow: props});
+              }
+              this.props.endGlobalLoad();
+            });
+      })(loadDataCounter);
     } else {
       this.setState({propsToShow: props});
     }
@@ -114,4 +130,4 @@ class ReduxAsyncConnect extends React.Component {
   }
 }
 
-export default connect(() => ({}), {beginGlobalLoad, endGlobalLoad})(ReduxAsyncConnect);
+export default connect(null, {beginGlobalLoad, endGlobalLoad})(ReduxAsyncConnect);
