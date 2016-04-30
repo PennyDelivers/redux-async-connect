@@ -12,12 +12,12 @@ export function reducer(state = {loaded: false}, action = {}) {
     case BEGIN_GLOBAL_LOAD:
       return {
         ...state,
-        loaded: false
+        loaded: false,
       };
     case END_GLOBAL_LOAD:
       return {
         ...state,
-        loaded: true
+        loaded: true,
       };
     case LOAD:
       return {
@@ -25,9 +25,9 @@ export function reducer(state = {loaded: false}, action = {}) {
         loadState: {
           [action.key]: {
             loading: true,
-            loaded: false
-          }
-        }
+            loaded: false,
+          },
+        },
       };
     case LOAD_SUCCESS:
       return {
@@ -36,10 +36,10 @@ export function reducer(state = {loaded: false}, action = {}) {
           [action.key]: {
             loading: false,
             loaded: true,
-            error: null
-          }
+            error: null,
+          },
         },
-        [action.key]: action.data
+        [action.key]: action.data,
       };
     case LOAD_FAIL:
       return {
@@ -48,10 +48,10 @@ export function reducer(state = {loaded: false}, action = {}) {
           [action.key]: {
             loading: false,
             loaded: false,
-            error: action.error
-          }
+            error: action.error,
+          },
         },
-        [action.key]: null
+        [action.key]: null,
       };
     case CLEAR:
       return {
@@ -60,10 +60,10 @@ export function reducer(state = {loaded: false}, action = {}) {
           [action.key]: {
             loading: false,
             loaded: false,
-            error: null
-          }
+            error: null,
+          },
         },
-        [action.key]: null
+        [action.key]: null,
       };
     default:
       return state;
@@ -73,7 +73,7 @@ export function reducer(state = {loaded: false}, action = {}) {
 export function clearKey(key) {
   return {
     type: CLEAR,
-    key
+    key,
   };
 }
 
@@ -88,7 +88,7 @@ export function endGlobalLoad() {
 function load(key) {
   return {
     type: LOAD,
-    key
+    key,
   };
 }
 
@@ -96,7 +96,7 @@ export function loadSuccess(key, data) {
   return {
     type: LOAD_SUCCESS,
     key,
-    data
+    data,
   };
 }
 
@@ -104,7 +104,7 @@ function loadFail(key, error) {
   return {
     type: LOAD_FAIL,
     key,
-    error
+    error,
   };
 }
 
@@ -121,7 +121,6 @@ function wrapWithDispatch(asyncItems) {
         } else {
           dispatch(loadSuccess(item.key, promiseOrResult));
         }
-
       }
       return promiseOrResult;
     }} : item
