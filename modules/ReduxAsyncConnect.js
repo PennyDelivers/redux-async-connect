@@ -2,8 +2,13 @@ import React from 'react';
 import RouterContext from 'react-router/lib/RouterContext';
 import { beginGlobalLoad, endGlobalLoad } from './asyncConnect';
 import { connect } from 'react-redux';
-
 const { array, func, object, any } = React.PropTypes;
+
+function eachPromise(promises) {
+  return promises.reduce((prev, curr, i) => {
+    return prev.then(() => curr);
+  }, Promise.resolve());
+}
 
 /**
  * We need to iterate over all components for specified routes.
@@ -40,26 +45,32 @@ function filterAndFlattenComponents(components) {
 
 function loadAsyncConnect({components, filter = () => true, ...rest}) {
   let async = false;
-  const promise = Promise.all(filterAndFlattenComponents(components).map(Component => {
-    const asyncItems = Component.reduxAsyncConnect;
 
-    return Promise.all(asyncItems.reduce((itemsResults, item) => {
+  let filterComponentAsyncConnectPromises = (Component) => {
+    return (results, item) => {
       let promiseOrResult = item.promise(rest);
 
       if (filter(item, Component)) {
         if (promiseOrResult && promiseOrResult.then instanceof Function) {
           async = true;
-          promiseOrResult = promiseOrResult.catch(error => ({error}));
         }
-        return [...itemsResults, promiseOrResult];
+        return [...results, promiseOrResult.catch((err) => {
+          return Promise.reject(err);
+        })];
       } else {
-        return itemsResults;
+        return results;
       }
-    }, [])).then(results => {
-      return asyncItems.reduce((result, item, i) => ({...result, [item.key]: results[i]}), {});
-    });
-  }));
+    };
+  };
 
+  let componentsToPromiseArray = (Component) => {
+    const asyncItems = Component.reduxAsyncConnect;
+
+    return Promise.all(asyncItems.reduce(filterComponentAsyncConnectPromises(Component), []));
+  };
+
+  let promises = filterAndFlattenComponents(components).map(componentsToPromiseArray);
+  const promise = eachPromise(promises);
   return {promise, async};
 }
 
@@ -82,17 +93,17 @@ class ReduxAsyncConnect extends React.Component {
     render: func.isRequired,
     beginGlobalLoad: func.isRequired,
     endGlobalLoad: func.isRequired,
-    helpers: any
+    helpers: any,
   };
 
   static contextTypes = {
-    store: object.isRequired
+    store: object.isRequired,
   };
 
   static defaultProps = {
     render(props) {
       return <RouterContext {...props} />;
-    }
+    },
   };
 
   isLoaded() {
@@ -103,7 +114,7 @@ class ReduxAsyncConnect extends React.Component {
     super(props, context);
 
     this.state = {
-      propsToShow: this.isLoaded() ? props : null
+      propsToShow: this.isLoaded() ? props : null,
     };
   }
 
