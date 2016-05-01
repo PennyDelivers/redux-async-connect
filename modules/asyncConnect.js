@@ -7,17 +7,19 @@ export const CLEAR = 'reduxAsyncConnect/CLEAR';
 export const BEGIN_GLOBAL_LOAD = 'reduxAsyncConnect/BEGIN_GLOBAL_LOAD';
 export const END_GLOBAL_LOAD = 'reduxAsyncConnect/END_GLOBAL_LOAD';
 
-export function reducer(state = {loaded: false}, action = {}) {
+export function reducer(state = {loaded: false, error: null}, action = {}) {
   switch (action.type) {
     case BEGIN_GLOBAL_LOAD:
       return {
         ...state,
         loaded: false,
+        error: null,
       };
     case END_GLOBAL_LOAD:
       return {
         ...state,
         loaded: true,
+        error: action.error,
       };
     case LOAD:
       return {
@@ -81,8 +83,8 @@ export function beginGlobalLoad() {
   return { type: BEGIN_GLOBAL_LOAD };
 }
 
-export function endGlobalLoad() {
-  return { type: END_GLOBAL_LOAD };
+export function endGlobalLoad(err) {
+  return { type: END_GLOBAL_LOAD, error: err };
 }
 
 function load(key) {
@@ -137,7 +139,20 @@ export function asyncConnect(asyncItems) {
         {}
       );
     };
-
     return connect(finalMapStateToProps)(Component);
+  };
+}
+
+export function getGlobalLoadingState(state) {
+  if (!state) {
+    return {
+      error: true,
+      payload: new Error('unable to find state'),
+    };
+  }
+  return {
+    loaded: state.loaded,
+    error: state.error,
+    payload: state.payload,
   };
 }

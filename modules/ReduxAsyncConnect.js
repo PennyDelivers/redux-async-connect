@@ -3,12 +3,7 @@ import RouterContext from 'react-router/lib/RouterContext';
 import { beginGlobalLoad, endGlobalLoad } from './asyncConnect';
 import { connect } from 'react-redux';
 const { array, func, object, any } = React.PropTypes;
-
-function eachPromise(promises) {
-  return promises.reduce((prev, curr, i) => {
-    return prev.then(() => curr);
-  }, Promise.resolve());
-}
+var debug = require('debug')('app:components:ReduxAsyncConnect');
 
 /**
  * We need to iterate over all components for specified routes.
@@ -44,19 +39,15 @@ function filterAndFlattenComponents(components) {
 }
 
 function loadAsyncConnect({components, filter = () => true, ...rest}) {
-  let async = false;
-
+  rest.store.dispatch(beginGlobalLoad());
   let filterComponentAsyncConnectPromises = (Component) => {
     return (results, item) => {
       let promiseOrResult = item.promise(rest);
 
       if (filter(item, Component)) {
         if (promiseOrResult && promiseOrResult.then instanceof Function) {
-          async = true;
         }
-        return [...results, promiseOrResult.catch((err) => {
-          return Promise.reject(err);
-        })];
+        return [...results, promiseOrResult];
       } else {
         return results;
       }
@@ -64,24 +55,29 @@ function loadAsyncConnect({components, filter = () => true, ...rest}) {
   };
 
   let componentsToPromiseArray = (Component) => {
-    const asyncItems = Component.reduxAsyncConnect;
+    return () => {
+      const asyncItems = Component.reduxAsyncConnect;
 
-    return Promise.all(asyncItems.reduce(filterComponentAsyncConnectPromises(Component), []));
+      return Promise.all(asyncItems.reduce(filterComponentAsyncConnectPromises(Component), []));
+    };
   };
 
-  let promises = filterAndFlattenComponents(components).map(componentsToPromiseArray);
-  const promise = eachPromise(promises);
-  return {promise, async};
+  let promise = filterAndFlattenComponents(components).reduce((prevPromise, currComponent, i) => {
+    return prevPromise.then(componentsToPromiseArray(currComponent));
+  }, Promise.resolve())
+    .then(() => {
+      rest.store.dispatch(endGlobalLoad());
+    })
+    .catch((err) => {
+      debug('loadOnServer', 'catch', err.message);
+      rest.store.dispatch(endGlobalLoad(err));
+    });
+  return promise;
 }
 
 export function loadOnServer(args) {
-  const result = loadAsyncConnect(args);
-  if (result.async) {
-    result.promise.then(() => {
-      args.store.dispatch(endGlobalLoad());
-    });
-  }
-  return result.promise;
+  const promise = loadAsyncConnect(args);
+  return promise;
 }
 
 let loadDataCounter = 0;
@@ -135,28 +131,23 @@ class ReduxAsyncConnect extends React.Component {
   }
 
   loadAsyncData(props) {
+    debug('loadAsyncData');
     const store = this.context.store;
-    const loadResult = loadAsyncConnect({...props, store});
-
     loadDataCounter++;
+    const promise = loadAsyncConnect({...props, store});
 
-    if (loadResult.async) {
-      this.props.beginGlobalLoad();
-      (loadDataCounterOriginal => {
-        loadResult.promise.then(() => {
-          // We need to change propsToShow only if loadAsyncData that called this promise
-          // is the last invocation of loadAsyncData method. Otherwise we can face situation
-          // when user is changing route several times and we finally show him route that has
-          // loaded props last time and not the last called route
-          if (loadDataCounter === loadDataCounterOriginal) {
-            this.setState({propsToShow: props});
-          }
-          this.props.endGlobalLoad();
-        });
-      })(loadDataCounter);
-    } else {
-      this.setState({propsToShow: props});
-    }
+    (loadDataCounterOriginal => {
+      const promiseFinally = () => {
+        // We need to change propsToShow only if loadAsyncData that called this promise
+        // is the last invocation of loadAsyncData method. Otherwise we can face situation
+        // when user is changing route several times and we finally show him route that has
+        // loaded props last time and not the last called route
+        if (loadDataCounter === loadDataCounterOriginal) {
+          this.setState({propsToShow: props});
+        }
+      };
+      promise.then(promiseFinally, promiseFinally);
+    })(loadDataCounter);
   }
 
   render() {

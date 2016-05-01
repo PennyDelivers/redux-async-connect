@@ -1,5 +1,5 @@
 import ReduxAsyncConnect, {loadOnServer} from './ReduxAsyncConnect';
-import {reducer, clearKey, loadSuccess, asyncConnect} from './asyncConnect';
+import {reducer, clearKey, loadSuccess, asyncConnect, getGlobalLoadingState} from './asyncConnect';
 
 export {
     loadOnServer,
@@ -7,5 +7,6 @@ export {
     reducer,
     clearKey,
     loadSuccess,
-    asyncConnect
+    asyncConnect,
+    getGlobalLoadingState,
 };
