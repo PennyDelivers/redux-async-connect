@@ -7,7 +7,7 @@ export const CLEAR = 'reduxAsyncConnect/CLEAR';
 export const BEGIN_GLOBAL_LOAD = 'reduxAsyncConnect/BEGIN_GLOBAL_LOAD';
 export const END_GLOBAL_LOAD = 'reduxAsyncConnect/END_GLOBAL_LOAD';
 
-export function reducer(state = {loaded: false, error: null}, action = {}) {
+export function reducer(state = { loaded: false, error: null }, action = {}) {
   switch (action.type) {
     case BEGIN_GLOBAL_LOAD:
       return {
