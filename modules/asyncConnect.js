@@ -150,9 +150,5 @@ export function getGlobalLoadingState(state) {
       payload: new Error('unable to find state'),
     };
   }
-  return {
-    loaded: state.loaded,
-    error: state.error,
-    payload: state.payload,
-  };
+  return state;
 }
